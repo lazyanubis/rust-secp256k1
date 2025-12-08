@@ -1,18 +1,18 @@
 [package]
 name = "secp256k1-sys"
 version = "0.10.1"
-authors = [
-    "Dawid Ciężarkiewicz <dpc@ucore.info>",
-    "Andrew Poelstra <apoelstra@wpsoftware.net>",
-    "Steven Roose <steven@stevenroose.org>",
-]
+authors = [ "Dawid Ciężarkiewicz <dpc@ucore.info>",
+            "Andrew Poelstra <apoelstra@wpsoftware.net>",
+            "Steven Roose <steven@stevenroose.org>" ]
 license = "CC0-1.0"
 homepage = "https://github.com/rust-bitcoin/rust-secp256k1/"
 repository = "https://github.com/rust-bitcoin/rust-secp256k1/"
 documentation = "https://docs.rs/secp256k1-sys/"
 description = "FFI for Pieter Wuille's `libsecp256k1` library."
-keywords = ["secp256k1", "libsecp256k1", "ffi"]
+keywords = [ "secp256k1", "libsecp256k1", "ffi" ]
 readme = "README.md"
+build = "build.rs"
+links = "rustsecp256k1_v0_10_0"
 edition = "2021"
 rust-version = "1.56.1"
 
@@ -20,6 +20,11 @@ rust-version = "1.56.1"
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[build-dependencies]
+cc = "1.0.28"
+
+[dev-dependencies]
+libc = "0.2"
 
 [features]
 default = ["std"]
@@ -29,8 +34,4 @@ std = ["alloc"]
 alloc = []
 
 [lints.rust]
-unexpected_cfgs = { level = "deny", check-cfg = [
-    'cfg(bench)',
-    'cfg(secp256k1_fuzz)',
-    'cfg(rust_secp_no_symbol_renaming)',
-] }
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(bench)', 'cfg(secp256k1_fuzz)', 'cfg(rust_secp_no_symbol_renaming)'] }
