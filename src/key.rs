@@ -93,7 +93,9 @@ where
     type Output = <[u8] as ops::Index<I>>::Output;
 
     #[inline]
-    fn index(&self, index: I) -> &Self::Output { &self.0[index] }
+    fn index(&self, index: I) -> &Self::Output {
+        &self.0[index]
+    }
 }
 
 impl ffi::CPtr for SecretKey {
@@ -160,7 +162,9 @@ impl fmt::LowerHex for PublicKey {
 }
 
 impl fmt::Display for PublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::LowerHex::fmt(self, f) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::LowerHex::fmt(self, f)
+    }
 }
 
 impl str::FromStr for PublicKey {
@@ -168,8 +172,9 @@ impl str::FromStr for PublicKey {
     fn from_str(s: &str) -> Result<PublicKey, Error> {
         let mut res = [0u8; constants::UNCOMPRESSED_PUBLIC_KEY_SIZE];
         match from_hex(s, &mut res) {
-            Ok(constants::PUBLIC_KEY_SIZE) =>
-                PublicKey::from_slice(&res[0..constants::PUBLIC_KEY_SIZE]),
+            Ok(constants::PUBLIC_KEY_SIZE) => {
+                PublicKey::from_slice(&res[0..constants::PUBLIC_KEY_SIZE])
+            }
             Ok(constants::UNCOMPRESSED_PUBLIC_KEY_SIZE) => PublicKey::from_slice(&res),
             _ => Err(Error::InvalidPublicKey),
         }
@@ -259,7 +264,9 @@ impl SecretKey {
 
     /// Returns the secret key as a byte value.
     #[inline]
-    pub fn secret_bytes(&self) -> [u8; constants::SECRET_KEY_SIZE] { self.0 }
+    pub fn secret_bytes(&self) -> [u8; constants::SECRET_KEY_SIZE] {
+        self.0
+    }
 
     /// Negates the secret key.
     #[inline]
@@ -320,7 +327,9 @@ impl SecretKey {
     /// Constructs an ECDSA signature for `msg` using the global [`SECP256K1`] context.
     #[inline]
     #[cfg(feature = "global-context")]
-    pub fn sign_ecdsa(&self, msg: Message) -> ecdsa::Signature { SECP256K1.sign_ecdsa(&msg, self) }
+    pub fn sign_ecdsa(&self, msg: Message) -> ecdsa::Signature {
+        SECP256K1.sign_ecdsa(&msg, self)
+    }
 
     /// Returns the [`Keypair`] for this [`SecretKey`].
     ///
@@ -394,7 +403,9 @@ impl PublicKey {
     /// Obtains a raw const pointer suitable for use with FFI functions.
     #[inline]
     #[deprecated(since = "0.25.0", note = "Use Self::as_c_ptr if you need to access the FFI layer")]
-    pub fn as_ptr(&self) -> *const ffi::PublicKey { self.as_c_ptr() }
+    pub fn as_ptr(&self) -> *const ffi::PublicKey {
+        self.as_c_ptr()
+    }
 
     /// Obtains a raw mutable pointer suitable for use with FFI functions.
     #[inline]
@@ -402,7 +413,9 @@ impl PublicKey {
         since = "0.25.0",
         note = "Use Self::as_mut_c_ptr if you need to access the FFI layer"
     )]
-    pub fn as_mut_ptr(&mut self) -> *mut ffi::PublicKey { self.as_mut_c_ptr() }
+    pub fn as_mut_ptr(&mut self) -> *mut ffi::PublicKey {
+        self.as_mut_c_ptr()
+    }
 
     /// Creates a new public key from a [`SecretKey`].
     ///
@@ -430,7 +443,9 @@ impl PublicKey {
     }
     /// Creates a new public key from an [`ElligatorSwift`].
     #[inline]
-    pub fn from_ellswift(ellswift: ElligatorSwift) -> PublicKey { ElligatorSwift::decode(ellswift) }
+    pub fn from_ellswift(ellswift: ElligatorSwift) -> PublicKey {
+        ElligatorSwift::decode(ellswift)
+    }
 
     /// Creates a new public key from a [`SecretKey`] and the global [`SECP256K1`] context.
     #[inline]
@@ -699,10 +714,14 @@ impl CPtr for PublicKey {
     type Target = ffi::PublicKey;
 
     /// Obtains a const pointer suitable for use with FFI functions.
-    fn as_c_ptr(&self) -> *const Self::Target { &self.0 }
+    fn as_c_ptr(&self) -> *const Self::Target {
+        &self.0
+    }
 
     /// Obtains a mutable pointer suitable for use with FFI functions.
-    fn as_mut_c_ptr(&mut self) -> *mut Self::Target { &mut self.0 }
+    fn as_mut_c_ptr(&mut self) -> *mut Self::Target {
+        &mut self.0
+    }
 }
 
 /// Creates a new public key from a FFI public key.
@@ -710,7 +729,9 @@ impl CPtr for PublicKey {
 /// Note, normal users should never need to interact directly with FFI types.
 impl From<ffi::PublicKey> for PublicKey {
     #[inline]
-    fn from(pk: ffi::PublicKey) -> PublicKey { PublicKey(pk) }
+    fn from(pk: ffi::PublicKey) -> PublicKey {
+        PublicKey(pk)
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -779,7 +800,9 @@ impl Keypair {
     /// Obtains a raw const pointer suitable for use with FFI functions.
     #[inline]
     #[deprecated(since = "0.25.0", note = "Use Self::as_c_ptr if you need to access the FFI layer")]
-    pub fn as_ptr(&self) -> *const ffi::Keypair { self.as_c_ptr() }
+    pub fn as_ptr(&self) -> *const ffi::Keypair {
+        self.as_c_ptr()
+    }
 
     /// Obtains a raw mutable pointer suitable for use with FFI functions.
     #[inline]
@@ -787,7 +810,9 @@ impl Keypair {
         since = "0.25.0",
         note = "Use Self::as_mut_c_ptr if you need to access the FFI layer"
     )]
-    pub fn as_mut_ptr(&mut self) -> *mut ffi::Keypair { self.as_mut_c_ptr() }
+    pub fn as_mut_ptr(&mut self) -> *mut ffi::Keypair {
+        self.as_mut_c_ptr()
+    }
 
     /// Creates a [`Keypair`] directly from a Secp256k1 secret key.
     #[inline]
@@ -836,8 +861,9 @@ impl Keypair {
     pub fn from_seckey_str<C: Signing>(secp: &Secp256k1<C>, s: &str) -> Result<Keypair, Error> {
         let mut res = [0u8; constants::SECRET_KEY_SIZE];
         match from_hex(s, &mut res) {
-            Ok(constants::SECRET_KEY_SIZE) =>
-                Keypair::from_seckey_slice(secp, &res[0..constants::SECRET_KEY_SIZE]),
+            Ok(constants::SECRET_KEY_SIZE) => {
+                Keypair::from_seckey_slice(secp, &res[0..constants::SECRET_KEY_SIZE])
+            }
             _ => Err(Error::InvalidPublicKey),
         }
     }
@@ -939,13 +965,17 @@ impl Keypair {
     ///
     /// This is equivalent to using [`SecretKey::from_keypair`].
     #[inline]
-    pub fn secret_key(&self) -> SecretKey { SecretKey::from_keypair(self) }
+    pub fn secret_key(&self) -> SecretKey {
+        SecretKey::from_keypair(self)
+    }
 
     /// Returns the [`PublicKey`] for this [`Keypair`].
     ///
     /// This is equivalent to using [`PublicKey::from_keypair`].
     #[inline]
-    pub fn public_key(&self) -> PublicKey { PublicKey::from_keypair(self) }
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey::from_keypair(self)
+    }
 
     /// Returns the [`XOnlyPublicKey`] (and it's [`Parity`]) for this [`Keypair`].
     ///
@@ -969,27 +999,37 @@ impl Keypair {
     /// For more discussion on this, please see the documentation of the
     /// [`zeroize`](https://docs.rs/zeroize) crate.
     #[inline]
-    pub fn non_secure_erase(&mut self) { self.0.non_secure_erase(); }
+    pub fn non_secure_erase(&mut self) {
+        self.0.non_secure_erase();
+    }
 }
 
 impl From<Keypair> for SecretKey {
     #[inline]
-    fn from(pair: Keypair) -> Self { SecretKey::from_keypair(&pair) }
+    fn from(pair: Keypair) -> Self {
+        SecretKey::from_keypair(&pair)
+    }
 }
 
 impl<'a> From<&'a Keypair> for SecretKey {
     #[inline]
-    fn from(pair: &'a Keypair) -> Self { SecretKey::from_keypair(pair) }
+    fn from(pair: &'a Keypair) -> Self {
+        SecretKey::from_keypair(pair)
+    }
 }
 
 impl From<Keypair> for PublicKey {
     #[inline]
-    fn from(pair: Keypair) -> Self { PublicKey::from_keypair(&pair) }
+    fn from(pair: Keypair) -> Self {
+        PublicKey::from_keypair(&pair)
+    }
 }
 
 impl<'a> From<&'a Keypair> for PublicKey {
     #[inline]
-    fn from(pair: &'a Keypair) -> Self { PublicKey::from_keypair(pair) }
+    fn from(pair: &'a Keypair) -> Self {
+        PublicKey::from_keypair(pair)
+    }
 }
 
 impl str::FromStr for Keypair {
@@ -1060,9 +1100,13 @@ impl<'de> serde::Deserialize<'de> for Keypair {
 
 impl CPtr for Keypair {
     type Target = ffi::Keypair;
-    fn as_c_ptr(&self) -> *const Self::Target { &self.0 }
+    fn as_c_ptr(&self) -> *const Self::Target {
+        &self.0
+    }
 
-    fn as_mut_c_ptr(&mut self) -> *mut Self::Target { &mut self.0 }
+    fn as_mut_c_ptr(&mut self) -> *mut Self::Target {
+        &mut self.0
+    }
 }
 
 /// An x-only public key, used for verification of Taproot signatures and serialized according to BIP-340.
@@ -1103,7 +1147,9 @@ impl fmt::LowerHex for XOnlyPublicKey {
 }
 
 impl fmt::Display for XOnlyPublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::LowerHex::fmt(self, f) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::LowerHex::fmt(self, f)
+    }
 }
 
 impl str::FromStr for XOnlyPublicKey {
@@ -1111,8 +1157,9 @@ impl str::FromStr for XOnlyPublicKey {
     fn from_str(s: &str) -> Result<XOnlyPublicKey, Error> {
         let mut res = [0u8; constants::SCHNORR_PUBLIC_KEY_SIZE];
         match from_hex(s, &mut res) {
-            Ok(constants::SCHNORR_PUBLIC_KEY_SIZE) =>
-                XOnlyPublicKey::from_slice(&res[0..constants::SCHNORR_PUBLIC_KEY_SIZE]),
+            Ok(constants::SCHNORR_PUBLIC_KEY_SIZE) => {
+                XOnlyPublicKey::from_slice(&res[0..constants::SCHNORR_PUBLIC_KEY_SIZE])
+            }
             _ => Err(Error::InvalidPublicKey),
         }
     }
@@ -1122,7 +1169,9 @@ impl XOnlyPublicKey {
     /// Obtains a raw const pointer suitable for use with FFI functions.
     #[inline]
     #[deprecated(since = "0.25.0", note = "Use Self::as_c_ptr if you need to access the FFI layer")]
-    pub fn as_ptr(&self) -> *const ffi::XOnlyPublicKey { self.as_c_ptr() }
+    pub fn as_ptr(&self) -> *const ffi::XOnlyPublicKey {
+        self.as_c_ptr()
+    }
 
     /// Obtains a raw mutable pointer suitable for use with FFI functions.
     #[inline]
@@ -1130,7 +1179,9 @@ impl XOnlyPublicKey {
         since = "0.25.0",
         note = "Use Self::as_mut_c_ptr if you need to access the FFI layer"
     )]
-    pub fn as_mut_ptr(&mut self) -> *mut ffi::XOnlyPublicKey { self.as_mut_c_ptr() }
+    pub fn as_mut_ptr(&mut self) -> *mut ffi::XOnlyPublicKey {
+        self.as_mut_c_ptr()
+    }
 
     /// Returns the [`XOnlyPublicKey`] (and it's [`Parity`]) for `keypair`.
     #[inline]
@@ -1336,12 +1387,16 @@ impl Parity {
     /// Converts parity into an integer (byte) value.
     ///
     /// This returns `0` for even parity and `1` for odd parity.
-    pub fn to_u8(self) -> u8 { self as u8 }
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
 
     /// Converts parity into an integer value.
     ///
     /// This returns `0` for even parity and `1` for odd parity.
-    pub fn to_i32(self) -> i32 { self as i32 }
+    pub fn to_i32(self) -> i32 {
+        self as i32
+    }
 
     /// Constructs a [`Parity`] from a byte.
     ///
@@ -1368,24 +1423,32 @@ impl Parity {
 impl TryFrom<i32> for Parity {
     type Error = InvalidParityValue;
 
-    fn try_from(parity: i32) -> Result<Self, Self::Error> { Self::from_i32(parity) }
+    fn try_from(parity: i32) -> Result<Self, Self::Error> {
+        Self::from_i32(parity)
+    }
 }
 
 /// `Even` for `0`, `Odd` for `1`, error for anything else
 impl TryFrom<u8> for Parity {
     type Error = InvalidParityValue;
 
-    fn try_from(parity: u8) -> Result<Self, Self::Error> { Self::from_u8(parity) }
+    fn try_from(parity: u8) -> Result<Self, Self::Error> {
+        Self::from_u8(parity)
+    }
 }
 
 /// The conversion returns `0` for even parity and `1` for odd.
 impl From<Parity> for i32 {
-    fn from(parity: Parity) -> i32 { parity.to_i32() }
+    fn from(parity: Parity) -> i32 {
+        parity.to_i32()
+    }
 }
 
 /// The conversion returns `0` for even parity and `1` for odd.
 impl From<Parity> for u8 {
-    fn from(parity: Parity) -> u8 { parity.to_u8() }
+    fn from(parity: Parity) -> u8 {
+        parity.to_u8()
+    }
 }
 
 /// Returns even parity if the operands are equal, odd otherwise.
@@ -1420,7 +1483,9 @@ impl fmt::Display for InvalidParityValue {
 impl std::error::Error for InvalidParityValue {}
 
 impl From<InvalidParityValue> for Error {
-    fn from(error: InvalidParityValue) -> Self { Error::InvalidParityValue(error) }
+    fn from(error: InvalidParityValue) -> Self {
+        Error::InvalidParityValue(error)
+    }
 }
 
 /// The parity is serialized as `u8` - `0` for even, `1` for odd.
@@ -1461,15 +1526,21 @@ impl<'de> serde::Deserialize<'de> for Parity {
 
 impl CPtr for XOnlyPublicKey {
     type Target = ffi::XOnlyPublicKey;
-    fn as_c_ptr(&self) -> *const Self::Target { &self.0 }
+    fn as_c_ptr(&self) -> *const Self::Target {
+        &self.0
+    }
 
-    fn as_mut_c_ptr(&mut self) -> *mut Self::Target { &mut self.0 }
+    fn as_mut_c_ptr(&mut self) -> *mut Self::Target {
+        &mut self.0
+    }
 }
 
 /// Creates a new schnorr public key from a FFI x-only public key.
 impl From<ffi::XOnlyPublicKey> for XOnlyPublicKey {
     #[inline]
-    fn from(pk: ffi::XOnlyPublicKey) -> XOnlyPublicKey { XOnlyPublicKey(pk) }
+    fn from(pk: ffi::XOnlyPublicKey) -> XOnlyPublicKey {
+        XOnlyPublicKey(pk)
+    }
 }
 
 impl From<PublicKey> for XOnlyPublicKey {
@@ -1629,8 +1700,12 @@ mod test {
     fn test_out_of_range() {
         struct BadRng(u8);
         impl RngCore for BadRng {
-            fn next_u32(&mut self) -> u32 { unimplemented!() }
-            fn next_u64(&mut self) -> u64 { unimplemented!() }
+            fn next_u32(&mut self) -> u32 {
+                unimplemented!()
+            }
+            fn next_u64(&mut self) -> u64 {
+                unimplemented!()
+            }
             // This will set a secret key to a little over the
             // group order, then decrement with repeated calls
             // until it returns a valid key
