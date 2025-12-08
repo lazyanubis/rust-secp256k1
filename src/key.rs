@@ -4,6 +4,7 @@
 //!
 
 use core::ops::{self, BitXor};
+#[allow(unused)]
 use core::{fmt, ptr, str};
 
 #[cfg(feature = "serde")]
@@ -221,10 +222,8 @@ impl SecretKey {
         match <[u8; constants::SECRET_KEY_SIZE]>::try_from(data) {
             Ok(data) => {
                 unsafe {
-                    if ffi::secp256k1_ec_seckey_verify(
-                        ffi::secp256k1_context_no_precomp,
-                        data.as_c_ptr(),
-                    ) == 0
+                    if ffi::secp256k1_ec_seckey_verify(ffi::secp256k1_context_no_precomp, &data)
+                        == 0
                     {
                         return Err(InvalidSecretKey);
                     }
@@ -494,11 +493,8 @@ impl PublicKey {
     pub fn from_keypair(keypair: &Keypair) -> Self {
         unsafe {
             let mut pk = ffi::PublicKey::new();
-            let ret = ffi::secp256k1_keypair_pub(
-                ffi::secp256k1_context_no_precomp,
-                &mut pk,
-                keypair.as_c_ptr(),
-            );
+            let ret =
+                ffi::secp256k1_keypair_pub(ffi::secp256k1_context_no_precomp, &mut pk, &keypair.0);
             debug_assert_eq!(ret, 1);
             PublicKey(pk)
         }
@@ -687,7 +683,7 @@ impl PublicKey {
                 ffi::secp256k1_context_no_precomp,
                 &mut xonly_pk,
                 &mut pk_parity,
-                self.as_c_ptr(),
+                &self.0,
             );
             debug_assert_eq!(ret, 1);
             let parity =
@@ -819,7 +815,7 @@ impl Keypair {
     pub fn from_secret_key<C: Signing>(secp: &Secp256k1<C>, sk: &SecretKey) -> Keypair {
         unsafe {
             let mut kp = ffi::Keypair::new();
-            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, sk.as_c_ptr()) == 1 {
+            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, &sk.0) == 1 {
                 Keypair(kp)
             } else {
                 panic!("the provided secret key is invalid: it is corrupted or was not produced by Secp256k1 library")
@@ -842,9 +838,12 @@ impl Keypair {
             return Err(Error::InvalidSecretKey);
         }
 
+        let mut _data = [0_u8; 32];
+        _data.copy_from_slice(data);
+
         unsafe {
             let mut kp = ffi::Keypair::new();
-            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, data.as_c_ptr()) == 1 {
+            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, &_data) == 1 {
                 Ok(Keypair(kp))
             } else {
                 Err(Error::InvalidSecretKey)
@@ -1193,7 +1192,7 @@ impl XOnlyPublicKey {
                 ffi::secp256k1_context_no_precomp,
                 &mut xonly_pk,
                 &mut pk_parity,
-                keypair.as_c_ptr(),
+                &keypair.0,
             );
             debug_assert_eq!(ret, 1);
             let parity =
@@ -1215,13 +1214,13 @@ impl XOnlyPublicKey {
             return Err(Error::InvalidPublicKey);
         }
 
+        let mut _data = [0; 32];
+        _data.copy_from_slice(data);
+
         unsafe {
             let mut pk = ffi::XOnlyPublicKey::new();
-            if ffi::secp256k1_xonly_pubkey_parse(
-                ffi::secp256k1_context_no_precomp,
-                &mut pk,
-                data.as_c_ptr(),
-            ) == 1
+            if ffi::secp256k1_xonly_pubkey_parse(ffi::secp256k1_context_no_precomp, &mut pk, &_data)
+                == 1
             {
                 Ok(XOnlyPublicKey(pk))
             } else {
@@ -1238,8 +1237,8 @@ impl XOnlyPublicKey {
         unsafe {
             let err = ffi::secp256k1_xonly_pubkey_serialize(
                 ffi::secp256k1_context_no_precomp,
-                ret.as_mut_c_ptr(),
-                self.as_c_ptr(),
+                &mut ret,
+                &self.0,
             );
             debug_assert_eq!(err, 1);
         }
@@ -1547,13 +1546,14 @@ impl From<PublicKey> for XOnlyPublicKey {
     fn from(src: PublicKey) -> XOnlyPublicKey {
         unsafe {
             let mut pk = ffi::XOnlyPublicKey::new();
+            let mut i = 0;
             assert_eq!(
                 1,
                 ffi::secp256k1_xonly_pubkey_from_pubkey(
                     ffi::secp256k1_context_no_precomp,
                     &mut pk,
-                    ptr::null_mut(),
-                    src.as_c_ptr(),
+                    &mut i,
+                    &src.0,
                 )
             );
             XOnlyPublicKey(pk)

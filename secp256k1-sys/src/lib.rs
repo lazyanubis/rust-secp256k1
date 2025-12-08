@@ -673,8 +673,15 @@ mod _c1 {
 
     // Secret Keys
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_ec_seckey_verify")]
-    pub unsafe fn secp256k1_ec_seckey_verify(cx: Context, sk: *const c_uchar) -> c_int {
-        todo!()
+    pub unsafe fn secp256k1_ec_seckey_verify(cx: Context, sk: &[u8; 32]) -> c_int {
+        match k256::SecretKey::from_bytes(sk.into()) {
+            Ok(_) => 1, // 私钥有效
+            Err(e) => {
+                // 打印错误原因（可选，方便调试）
+                eprintln!("私钥无效：{}", e);
+                0
+            }
+        }
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_ec_seckey_negate")]
@@ -712,9 +719,12 @@ mod _c1 {
     pub unsafe fn secp256k1_keypair_pub(
         cx: Context,
         output_pubkey: *mut PublicKey,
-        keypair: *const Keypair,
+        keypair: &Keypair,
     ) -> c_int {
-        todo!()
+        let mut public_key = [0_u8; 64];
+        public_key.copy_from_slice(&keypair.0[32..]);
+        *output_pubkey = PublicKey(public_key);
+        1
     }
     // Elligator Swift
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_ellswift_encode")]
@@ -768,7 +778,7 @@ mod _c2 {
     // Contexts
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_size")]
     pub unsafe fn secp256k1_context_preallocated_size(flags: c_uint) -> size_t {
-        todo!()
+        0
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_create")]
@@ -776,7 +786,8 @@ mod _c2 {
         prealloc: NonNull<c_void>,
         flags: c_uint,
     ) -> NonNull<Context> {
-        todo!()
+        let mut c: Context = Context(0);
+        NonNull::from(&mut c)
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_clone_size")]
@@ -948,38 +959,80 @@ mod _c2 {
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_keypair_create")]
     pub unsafe fn secp256k1_keypair_create(
         cx: *const Context,
-        keypair: *mut Keypair,
-        seckey: *const c_uchar,
+        keypair: &mut Keypair,
+        seckey: &[u8; 32],
     ) -> c_int {
-        todo!()
+        let secret_key = match k256::SecretKey::from_slice(seckey) {
+            Ok(secret_key) => secret_key,
+            Err(_) => return 0,
+        };
+        let public_key = secret_key.public_key();
+        let mut key_pair = [0_u8; 96];
+        &key_pair[0..32].copy_from_slice(seckey);
+        use k256::elliptic_curve::sec1::ToEncodedPoint;
+        let uncompressed_pubkey = public_key.to_encoded_point(false); // false = 不压缩
+        let uncompressed_bytes = uncompressed_pubkey.as_bytes();
+        &key_pair[32..96].copy_from_slice(&uncompressed_bytes[1..]);
+        *keypair = Keypair(key_pair);
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_parse")]
     pub unsafe fn secp256k1_xonly_pubkey_parse(
         cx: Context,
-        pubkey: *mut XOnlyPublicKey,
-        input32: *const c_uchar,
+        pubkey: &mut XOnlyPublicKey,
+        input32: &[u8; 32],
     ) -> c_int {
-        todo!()
+        let key = match k256::schnorr::VerifyingKey::from_bytes(input32) {
+            Ok(key) => key,
+            Err(_) => return 0,
+        };
+
+        let affine_point = key.as_affine();
+
+        use k256::elliptic_curve::point::AffineCoordinates;
+        let x_only_bytes = affine_point.x();
+        let x_only_bytes = x_only_bytes.as_ref();
+        let mut _xonly_pubkey = [0u8; 64];
+        _xonly_pubkey[..32].copy_from_slice(x_only_bytes);
+        *pubkey = XOnlyPublicKey(_xonly_pubkey);
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_serialize")]
     pub unsafe fn secp256k1_xonly_pubkey_serialize(
         cx: Context,
-        output32: *mut c_uchar,
-        pubkey: *const XOnlyPublicKey,
+        output32: &mut [u8; 32],
+        pubkey: &XOnlyPublicKey,
     ) -> c_int {
-        todo!()
+        output32.copy_from_slice(&pubkey.0[..32]);
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_from_pubkey")]
     pub unsafe fn secp256k1_xonly_pubkey_from_pubkey(
         cx: Context,
-        xonly_pubkey: *mut XOnlyPublicKey,
-        pk_parity: *mut c_int,
-        pubkey: *const PublicKey,
+        xonly_pubkey: &mut XOnlyPublicKey,
+        pk_parity: &mut c_int,
+        pubkey: &PublicKey,
     ) -> c_int {
-        todo!()
+        let mut uncompressed_pubkey = [4_u8; 65]; // 04
+        uncompressed_pubkey[1..].copy_from_slice(&pubkey.0);
+        let public_key = k256::PublicKey::from_sec1_bytes(&uncompressed_pubkey).unwrap();
+        let affine_point = public_key.as_affine().clone();
+        use k256::elliptic_curve::point::AffineCoordinates;
+        let x_bytes = affine_point.x(); // 32字节x坐标
+        let x_bytes: &[u8] = x_bytes.as_ref();
+        let y_is_odd: bool = affine_point.y_is_odd().into(); // 32字节y坐标
+
+        // 注意：Xonly公钥本身就是x坐标，仅当y为奇数时，逻辑上对应共轭点，但x值不变
+        let mut _xonly_pubkey = [0u8; 64];
+        _xonly_pubkey[..32].copy_from_slice(x_bytes);
+        *xonly_pubkey = XOnlyPublicKey(_xonly_pubkey);
+
+        *pk_parity = if y_is_odd { 1 } else { 0 };
+
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_cmp")]
@@ -1004,11 +1057,30 @@ mod _c2 {
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_keypair_xonly_pub")]
     pub unsafe fn secp256k1_keypair_xonly_pub(
         cx: Context,
-        pubkey: *mut XOnlyPublicKey,
-        pk_parity: *mut c_int,
-        keypair: *const Keypair,
+        pubkey: &mut XOnlyPublicKey,
+        pk_parity: &mut c_int,
+        keypair: &Keypair,
     ) -> c_int {
-        todo!()
+        let secret_key = match k256::SecretKey::from_slice(&keypair.0[0..32]) {
+            Ok(secret_key) => secret_key,
+            Err(_) => return 0,
+        };
+        let public_key = secret_key.public_key();
+
+        let affine_point = public_key.as_affine().clone();
+        use k256::elliptic_curve::point::AffineCoordinates;
+        let x_bytes = affine_point.x(); // 32字节x坐标
+        let x_bytes: &[u8] = x_bytes.as_ref();
+        let y_is_odd: bool = affine_point.y_is_odd().into(); // 32字节y坐标
+
+        // 注意：Xonly公钥本身就是x坐标，仅当y为奇数时，逻辑上对应共轭点，但x值不变
+        let mut _xonly_pubkey = [0u8; 64];
+        _xonly_pubkey[..32].copy_from_slice(x_bytes);
+        *pubkey = XOnlyPublicKey(_xonly_pubkey);
+
+        *pk_parity = if y_is_odd { 1 } else { 0 };
+
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_keypair_xonly_tweak_add")]
