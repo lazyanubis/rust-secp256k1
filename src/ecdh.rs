@@ -6,6 +6,7 @@
 use core::borrow::Borrow;
 use core::{ptr, str};
 
+#[allow(unused)]
 use secp256k1_sys::types::{c_int, c_uchar, c_void};
 
 use crate::ffi::{self, CPtr};
@@ -134,7 +135,7 @@ pub fn shared_secret_point(point: &PublicKey, scalar: &SecretKey) -> [u8; 64] {
             xy.as_mut_ptr(),
             point.as_c_ptr(),
             scalar.as_c_ptr(),
-            Some(c_callback),
+            ffi::EcdhHashFn,
             ptr::null_mut(),
         )
     };
@@ -144,16 +145,16 @@ pub fn shared_secret_point(point: &PublicKey, scalar: &SecretKey) -> [u8; 64] {
     xy
 }
 
-unsafe extern "C" fn c_callback(
-    output: *mut c_uchar,
-    x: *const c_uchar,
-    y: *const c_uchar,
-    _data: *mut c_void,
-) -> c_int {
-    ptr::copy_nonoverlapping(x, output, 32);
-    ptr::copy_nonoverlapping(y, output.offset(32), 32);
-    1
-}
+// unsafe extern "C" fn c_callback(
+//     output: *mut c_uchar,
+//     x: *const c_uchar,
+//     y: *const c_uchar,
+//     _data: *mut c_void,
+// ) -> c_int {
+//     ptr::copy_nonoverlapping(x, output, 32);
+//     ptr::copy_nonoverlapping(y, output.offset(32), 32);
+//     1
+// }
 
 #[cfg(feature = "serde")]
 impl ::serde::Serialize for SharedSecret {

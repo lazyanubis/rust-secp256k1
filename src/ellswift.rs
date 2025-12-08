@@ -36,40 +36,42 @@
 //!   so this is possible).
 
 use core::fmt::{self, Display, Formatter};
+#[allow(unused)]
 use core::ptr;
 use core::str::FromStr;
 
 use ffi::CPtr;
+#[allow(unused)]
 use secp256k1_sys::types::{c_int, c_uchar, c_void};
 
 use crate::{constants, ffi, from_hex, Error, PublicKey, Secp256k1, SecretKey, Verification};
 
-unsafe extern "C" fn hash_callback<F>(
-    output: *mut c_uchar,
-    x32: *const c_uchar,
-    ell_a64: *const c_uchar,
-    ell_b64: *const c_uchar,
-    hash_func: *mut c_void,
-) -> c_int
-where
-    F: FnMut([u8; 32], [u8; 64], [u8; 64]) -> ElligatorSwiftSharedSecret,
-{
-    let callback: &mut F = &mut *(hash_func as *mut F);
-    let mut x32_array = [0u8; 32];
-    let mut ell_a64_array = [0u8; 64];
-    let mut ell_b64_array = [0u8; 64];
+// unsafe extern "C" fn hash_callback<F>(
+//     output: *mut c_uchar,
+//     x32: *const c_uchar,
+//     ell_a64: *const c_uchar,
+//     ell_b64: *const c_uchar,
+//     hash_func: *mut c_void,
+// ) -> c_int
+// where
+//     F: FnMut([u8; 32], [u8; 64], [u8; 64]) -> ElligatorSwiftSharedSecret,
+// {
+//     let callback: &mut F = &mut *(hash_func as *mut F);
+//     let mut x32_array = [0u8; 32];
+//     let mut ell_a64_array = [0u8; 64];
+//     let mut ell_b64_array = [0u8; 64];
 
-    // Copy the data into Rust slices
-    ptr::copy_nonoverlapping(x32, x32_array.as_mut_c_ptr(), 32);
-    ptr::copy_nonoverlapping(ell_a64, ell_a64_array.as_mut_c_ptr(), 64);
-    ptr::copy_nonoverlapping(ell_b64, ell_b64_array.as_mut_c_ptr(), 64);
-    // Call the hash function that was passed in through the `data` pointer
-    let secret = callback(x32_array, ell_a64_array, ell_b64_array);
-    // Copy the output from a [ElligatorSwiftSharedSecret] into the output pointer
-    ptr::copy_nonoverlapping(secret.0.as_ptr(), output, secret.0.len());
-    // Always returns 1
-    1
-}
+//     // Copy the data into Rust slices
+//     ptr::copy_nonoverlapping(x32, x32_array.as_mut_c_ptr(), 32);
+//     ptr::copy_nonoverlapping(ell_a64, ell_a64_array.as_mut_c_ptr(), 64);
+//     ptr::copy_nonoverlapping(ell_b64, ell_b64_array.as_mut_c_ptr(), 64);
+//     // Call the hash function that was passed in through the `data` pointer
+//     let secret = callback(x32_array, ell_a64_array, ell_b64_array);
+//     // Copy the output from a [ElligatorSwiftSharedSecret] into the output pointer
+//     ptr::copy_nonoverlapping(secret.0.as_ptr(), output, secret.0.len());
+//     // Always returns 1
+//     1
+// }
 
 /// `ElligatorSwift` is an encoding of a uniformly chosen point on the curve
 /// as a 64-byte array that is indistinguishable from a uniformly random array.
@@ -123,7 +125,7 @@ impl ElligatorSwift {
         let aux_rand_ptr = aux_rand.as_c_ptr();
         unsafe {
             let ret = ffi::secp256k1_ellswift_create(
-                secp.ctx().as_ptr(),
+                secp.ctx().as_ref().clone(),
                 es_out.as_mut_c_ptr(),
                 sk.as_c_ptr(),
                 aux_rand_ptr,
@@ -213,7 +215,7 @@ impl ElligatorSwift {
         F: FnMut([u8; 32], [u8; 64], [u8; 64]) -> ElligatorSwiftSharedSecret,
     {
         let mut shared_secret = [0u8; 32];
-        let hashfp = hash_callback::<F>;
+        // let hashfp = hash_callback::<F>;
         let p: Party = party.into();
         unsafe {
             let ret = ffi::secp256k1_ellswift_xdh(
@@ -223,7 +225,7 @@ impl ElligatorSwift {
                 ellswift_b.0.as_c_ptr(),
                 secret_key.as_c_ptr(),
                 p.to_ffi_int(),
-                Some(hashfp),
+                ffi::EllswiftEcdhHashFn,
                 &mut hash_function as *mut F as *mut c_void,
             );
             debug_assert_eq!(ret, 1);

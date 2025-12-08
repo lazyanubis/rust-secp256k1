@@ -1240,7 +1240,7 @@ impl XOnlyPublicKey {
             }
 
             err = ffi::secp256k1_xonly_pubkey_from_pubkey(
-                secp.ctx.as_ptr(),
+                secp.ctx.as_ref().clone(),
                 &mut self.0,
                 &mut pk_parity,
                 &pubkey,
