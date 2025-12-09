@@ -153,6 +153,9 @@ mod alloc_only {
         const DESCRIPTION: &'static str = "signing only";
 
         unsafe fn deallocate(ptr: *mut u8, size: usize) {
+            if size == 0 {
+                return;
+            }
             let layout = alloc::Layout::from_size_align(size, ALIGN_TO).unwrap();
             alloc::dealloc(ptr, layout);
         }
@@ -163,6 +166,9 @@ mod alloc_only {
         const DESCRIPTION: &'static str = "verification only";
 
         unsafe fn deallocate(ptr: *mut u8, size: usize) {
+            if size == 0 {
+                return;
+            }
             let layout = alloc::Layout::from_size_align(size, ALIGN_TO).unwrap();
             alloc::dealloc(ptr, layout);
         }
@@ -173,6 +179,9 @@ mod alloc_only {
         const DESCRIPTION: &'static str = "all capabilities";
 
         unsafe fn deallocate(ptr: *mut u8, size: usize) {
+            if size == 0 {
+                return;
+            }
             let layout = alloc::Layout::from_size_align(size, ALIGN_TO).unwrap();
             alloc::dealloc(ptr, layout);
         }

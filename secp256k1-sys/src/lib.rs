@@ -776,6 +776,7 @@ pub use _c2::*;
 #[allow(clippy::missing_safety_doc)]
 mod _c2 {
     use super::*;
+
     // Contexts
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_size")]
     pub unsafe fn secp256k1_context_preallocated_size(flags: c_uint) -> size_t {
@@ -971,12 +972,15 @@ mod _c2 {
             Err(_) => return 0,
         };
         let public_key = secret_key.public_key();
+
         let mut key_pair = [0_u8; 96];
         key_pair[0..32].copy_from_slice(seckey);
         use k256::elliptic_curve::sec1::ToEncodedPoint;
         let uncompressed_pubkey = public_key.to_encoded_point(false); // false = 不压缩
-        let uncompressed_bytes = uncompressed_pubkey.as_bytes();
-        key_pair[32..96].copy_from_slice(&uncompressed_bytes[1..]);
+        let mut uncompressed_bytes = uncompressed_pubkey.as_bytes().to_vec();
+        uncompressed_bytes.reverse(); // ! 小端法
+        key_pair[32..64].copy_from_slice(&uncompressed_bytes[32..64]);
+        key_pair[64..96].copy_from_slice(&uncompressed_bytes[0..32]);
         *keypair = Keypair(key_pair);
         1
     }
@@ -1021,7 +1025,10 @@ mod _c2 {
         pubkey: &PublicKey,
     ) -> c_int {
         let mut uncompressed_pubkey = [4_u8; 65]; // 04
-        uncompressed_pubkey[1..].copy_from_slice(&pubkey.0);
+        let mut pubkey = pubkey.0.to_vec();
+        pubkey.reverse(); // ! 输入是小端法
+        uncompressed_pubkey[1..33].copy_from_slice(&pubkey[32..]);
+        uncompressed_pubkey[33..].copy_from_slice(&pubkey[0..32]);
         let public_key = k256::PublicKey::from_sec1_bytes(&uncompressed_pubkey).unwrap();
         let affine_point = *public_key.as_affine();
         use k256::elliptic_curve::point::AffineCoordinates;
@@ -1095,30 +1102,45 @@ mod _c2 {
     ) -> c_int {
         use k256::elliptic_curve::group::GroupEncoding;
         use k256::elliptic_curve::scalar::FromUintUnchecked;
+        use k256::elliptic_curve::sec1::FromEncodedPoint;
         use k256::elliptic_curve::{sec1::ToEncodedPoint, Curve};
 
-        let tweak_uint = k256::elliptic_curve::bigint::U256::from_be_hex(&hex::encode(tweak32));
-        let tweak_mod: k256::elliptic_curve::bigint::U256 = tweak_uint
-            % k256::elliptic_curve::bigint::NonZero::new(k256::Secp256k1::ORDER).unwrap();
-        let tweak_scalar = k256::Scalar::from_uint_unchecked(tweak_mod); // 转换为secp256k1标量
+        // 1. 将32字节tweak转换为secp256k1标量（验证有效性）
+        let tweak = k256::Scalar::from_uint_unchecked(
+            k256::elliptic_curve::bigint::U256::from_be_hex(&hex::encode(tweak32)),
+        );
 
-        let g = k256::ProjectivePoint::GENERATOR;
-        let t_g = g * tweak_scalar;
+        // 2. 计算新私钥: (原始私钥 + tweak) mod 曲线阶数
+        let sk = k256::schnorr::SigningKey::from_bytes(&keypair.0[..32]).unwrap();
+        let original_scalar = sk.as_nonzero_scalar();
+        let new_scalar = original_scalar.as_ref() + tweak; // K256自动处理模n运算
+        let sk_bytes = new_scalar.to_bytes();
+        let sk_bytes: &[u8] = sk_bytes.as_ref();
+        let new_sk = k256::schnorr::SigningKey::from_bytes(sk_bytes);
 
-        let mut x_only_bytes_ = [0_u8; 33];
-        x_only_bytes_[0] = 0x02;
-        x_only_bytes_[1..].copy_from_slice(&keypair.0[32..64]);
-        #[allow(deprecated)]
-        let projective_point = k256::ProjectivePoint::from_bytes(
-            &k256::elliptic_curve::generic_array::GenericArray::from(x_only_bytes_),
-        )
-        .into_option()
-        .unwrap();
+        // 3. 计算新公钥: 原始公钥 + tweak * G（椭圆曲线点加法）
+        let mut _bytes = keypair.0.to_vec();
+        _bytes.reverse();
+        let mut bs = [0_u8; 64];
+        bs[..32].copy_from_slice(&_bytes[32..64]);
+        bs[32..].copy_from_slice(&_bytes[..32]);
+        let pk = k256::PublicKey::from_secret_scalar(original_scalar);
+        let g = k256::ProjectivePoint::GENERATOR; // secp256k1基点G
+        let tweak_point = g * tweak; // tweak * G
+        let original_point = k256::ProjectivePoint::from(pk.as_affine());
+        let new_point = original_point + tweak_point; // P + t*G
+        let new_pk_affine = new_point.to_affine();
+        let mut new_pk = k256::PublicKey::from_affine(new_pk_affine).unwrap();
 
-        let tweaked_proj = projective_point + t_g;
-        let tweaked_affine = k256::AffinePoint::from(tweaked_proj);
+        let pubkey = new_pk.to_encoded_point(false);
+        let mut pubkey = pubkey.as_bytes()[1..].to_vec();
+        pubkey.reverse(); // ! 小端法
 
-        keypair.0[32..].copy_from_slice(&tweaked_affine.to_encoded_point(false).as_bytes()[1..]);
+        let mut key_pair = [0_u8; 96];
+        key_pair[0..32].copy_from_slice(sk_bytes);
+        key_pair[32..64].copy_from_slice(&pubkey[32..64]);
+        key_pair[64..96].copy_from_slice(&pubkey[0..32]);
+        *keypair = Keypair(key_pair);
 
         1
     }
