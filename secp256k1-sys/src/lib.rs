@@ -25,6 +25,7 @@ pub mod types;
 pub mod recovery;
 
 use core::ptr::NonNull;
+#[allow(unused)]
 use core::{ptr, slice};
 use types::*;
 
@@ -140,8 +141,7 @@ impl SchnorrSigExtraParams {
 /// with `secp256k1_context_create` you MUST destroy it with
 /// `secp256k1_context_destroy`, or else you will have a memory leak.
 #[derive(Clone, Debug, Copy)]
-#[repr(C)]
-pub struct Context(c_int);
+pub struct Context;
 
 /// Library-internal representation of a Secp256k1 public key
 #[repr(C)]
@@ -580,6 +580,8 @@ impl_raw_debug!(ElligatorSwift);
 // extern "C" {
 pub use _c1::*;
 #[allow(unused)]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::missing_safety_doc)]
 mod _c1 {
     use super::*;
     /// Default ECDH hash function
@@ -605,7 +607,7 @@ mod _c1 {
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_no_precomp")]
     // pub static secp256k1_context_no_precomp: *const Context;
     #[allow(non_upper_case_globals)]
-    pub static secp256k1_context_no_precomp: Context = Context(0);
+    pub static secp256k1_context_no_precomp: Context = Context;
 
     // Contexts
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_destroy")]
@@ -771,6 +773,7 @@ mod _c1 {
 pub use _c2::*;
 #[allow(unused)]
 #[cfg(not(secp256k1_fuzz))]
+#[allow(clippy::missing_safety_doc)]
 mod _c2 {
     use super::*;
     // Contexts
@@ -784,7 +787,7 @@ mod _c2 {
         prealloc: NonNull<c_void>,
         flags: c_uint,
     ) -> NonNull<Context> {
-        let mut c: Context = Context(0);
+        let mut c: Context = Context;
         NonNull::from(&mut c)
     }
 
@@ -969,11 +972,11 @@ mod _c2 {
         };
         let public_key = secret_key.public_key();
         let mut key_pair = [0_u8; 96];
-        &key_pair[0..32].copy_from_slice(seckey);
+        key_pair[0..32].copy_from_slice(seckey);
         use k256::elliptic_curve::sec1::ToEncodedPoint;
         let uncompressed_pubkey = public_key.to_encoded_point(false); // false = 不压缩
         let uncompressed_bytes = uncompressed_pubkey.as_bytes();
-        &key_pair[32..96].copy_from_slice(&uncompressed_bytes[1..]);
+        key_pair[32..96].copy_from_slice(&uncompressed_bytes[1..]);
         *keypair = Keypair(key_pair);
         1
     }
@@ -1020,7 +1023,7 @@ mod _c2 {
         let mut uncompressed_pubkey = [4_u8; 65]; // 04
         uncompressed_pubkey[1..].copy_from_slice(&pubkey.0);
         let public_key = k256::PublicKey::from_sec1_bytes(&uncompressed_pubkey).unwrap();
-        let affine_point = public_key.as_affine().clone();
+        let affine_point = *public_key.as_affine();
         use k256::elliptic_curve::point::AffineCoordinates;
         let x_bytes = affine_point.x(); // 32字节x坐标
         let x_bytes: &[u8] = x_bytes.as_ref();
@@ -1068,7 +1071,7 @@ mod _c2 {
         };
         let public_key = secret_key.public_key();
 
-        let affine_point = public_key.as_affine().clone();
+        let affine_point = *public_key.as_affine();
         use k256::elliptic_curve::point::AffineCoordinates;
         let x_bytes = affine_point.x(); // 32字节x坐标
         let x_bytes: &[u8] = x_bytes.as_ref();
@@ -1148,37 +1151,39 @@ mod _c2 {
 ///
 /// The newly created secp256k1 raw context.
 #[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
-pub unsafe fn secp256k1_context_create(flags: c_uint) -> NonNull<Context> {
-    rustsecp256k1_v0_10_0_context_create(flags)
+pub unsafe fn secp256k1_context_create(_flags: c_uint) -> NonNull<Context> {
+    // rustsecp256k1_v0_10_0_context_create(flags)
+    let mut c: Context = Context;
+    NonNull::from(&mut c)
 }
 
-/// A reimplementation of the C function `secp256k1_context_create` in rust.
-///
-/// See [`secp256k1_context_create`] for documentation and safety constraints.
-#[no_mangle]
-#[allow(clippy::missing_safety_doc)] // Documented above.
-#[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
-pub unsafe extern "C" fn rustsecp256k1_v0_10_0_context_create(flags: c_uint) -> NonNull<Context> {
-    use crate::alloc::alloc;
-    use core::mem;
-    assert!(ALIGN_TO >= mem::align_of::<usize>());
-    assert!(ALIGN_TO >= mem::align_of::<&usize>());
-    assert!(ALIGN_TO >= mem::size_of::<usize>());
+// /// A reimplementation of the C function `secp256k1_context_create` in rust.
+// ///
+// /// See [`secp256k1_context_create`] for documentation and safety constraints.
+// #[no_mangle]
+// #[allow(clippy::missing_safety_doc)] // Documented above.
+// #[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
+// pub unsafe extern "C" fn rustsecp256k1_v0_10_0_context_create(flags: c_uint) -> NonNull<Context> {
+//     use crate::alloc::alloc;
+//     use core::mem;
+//     assert!(ALIGN_TO >= mem::align_of::<usize>());
+//     assert!(ALIGN_TO >= mem::align_of::<&usize>());
+//     assert!(ALIGN_TO >= mem::size_of::<usize>());
 
-    // We need to allocate `ALIGN_TO` more bytes in order to write the amount of bytes back.
-    let bytes = secp256k1_context_preallocated_size(flags) + ALIGN_TO;
-    let layout = alloc::Layout::from_size_align(bytes, ALIGN_TO).unwrap();
-    let ptr = alloc::alloc(layout);
-    if ptr.is_null() {
-        alloc::handle_alloc_error(layout);
-    }
-    (ptr as *mut usize).write(bytes);
-    // We must offset a whole ALIGN_TO in order to preserve the same alignment
-    // this means we "lose" ALIGN_TO-size_of(usize) for padding.
-    let ptr = ptr.add(ALIGN_TO);
-    let ptr = NonNull::new_unchecked(ptr as *mut c_void); // Checked above.
-    secp256k1_context_preallocated_create(ptr, flags)
-}
+//     // We need to allocate `ALIGN_TO` more bytes in order to write the amount of bytes back.
+//     let bytes = secp256k1_context_preallocated_size(flags) + ALIGN_TO;
+//     let layout = alloc::Layout::from_size_align(bytes, ALIGN_TO).unwrap();
+//     let ptr = alloc::alloc(layout);
+//     if ptr.is_null() {
+//         alloc::handle_alloc_error(layout);
+//     }
+//     (ptr as *mut usize).write(bytes);
+//     // We must offset a whole ALIGN_TO in order to preserve the same alignment
+//     // this means we "lose" ALIGN_TO-size_of(usize) for padding.
+//     let ptr = ptr.add(ALIGN_TO);
+//     let ptr = NonNull::new_unchecked(ptr as *mut c_void); // Checked above.
+//     secp256k1_context_preallocated_create(ptr, flags)
+// }
 
 /// A reimplementation of the C function `secp256k1_context_destroy` in rust.
 ///
@@ -1210,87 +1215,87 @@ pub unsafe fn rustsecp256k1_v0_10_0_context_destroy(mut ctx: NonNull<Context>) {
     todo!()
 }
 
-/// **This function is an override for the C function, this is the an edited version of the original description:**
-///
-/// A callback function to be called when an illegal argument is passed to
-/// an API call. It will only trigger for violations that are mentioned
-/// explicitly in the header. **This will cause a panic**.
-///
-/// The philosophy is that these shouldn't be dealt with through a
-/// specific return value, as calling code should not have branches to deal with
-/// the case that this code itself is broken.
-///
-/// On the other hand, during debug stage, one would want to be informed about
-/// such mistakes, and the default (crashing) may be inadvisable.
-/// When this callback is triggered, the API function called is guaranteed not
-/// to cause a crash, though its return value and output arguments are
-/// undefined.
-///
-/// See also secp256k1_default_error_callback_fn.
-///
-///
-/// # Safety
-///
-/// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
-///
-/// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
-#[no_mangle]
-#[cfg(not(rust_secp_no_symbol_renaming))]
-pub unsafe extern "C" fn rustsecp256k1_v0_10_0_default_illegal_callback_fn(
-    message: *const c_char,
-    _data: *mut c_void,
-) {
-    use core::str;
-    let msg_slice = slice::from_raw_parts(message as *const u8, strlen(message));
-    let msg = str::from_utf8_unchecked(msg_slice);
-    panic!("[libsecp256k1] illegal argument. {}", msg);
-}
+// /// **This function is an override for the C function, this is the an edited version of the original description:**
+// ///
+// /// A callback function to be called when an illegal argument is passed to
+// /// an API call. It will only trigger for violations that are mentioned
+// /// explicitly in the header. **This will cause a panic**.
+// ///
+// /// The philosophy is that these shouldn't be dealt with through a
+// /// specific return value, as calling code should not have branches to deal with
+// /// the case that this code itself is broken.
+// ///
+// /// On the other hand, during debug stage, one would want to be informed about
+// /// such mistakes, and the default (crashing) may be inadvisable.
+// /// When this callback is triggered, the API function called is guaranteed not
+// /// to cause a crash, though its return value and output arguments are
+// /// undefined.
+// ///
+// /// See also secp256k1_default_error_callback_fn.
+// ///
+// ///
+// /// # Safety
+// ///
+// /// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
+// ///
+// /// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
+// #[no_mangle]
+// #[cfg(not(rust_secp_no_symbol_renaming))]
+// pub unsafe extern "C" fn rustsecp256k1_v0_10_0_default_illegal_callback_fn(
+//     message: *const c_char,
+//     _data: *mut c_void,
+// ) {
+//     use core::str;
+//     let msg_slice = slice::from_raw_parts(message as *const u8, strlen(message));
+//     let msg = str::from_utf8_unchecked(msg_slice);
+//     panic!("[libsecp256k1] illegal argument. {}", msg);
+// }
 
-/// **This function is an override for the C function, this is the an edited version of the original description:**
-///
-/// A callback function to be called when an internal consistency check
-/// fails. **This will cause a panic**.
-///
-/// This can only trigger in case of a hardware failure, miscompilation,
-/// memory corruption, serious bug in the library, or other error would can
-/// otherwise result in undefined behaviour. It will not trigger due to mere
-/// incorrect usage of the API (see secp256k1_default_illegal_callback_fn
-/// for that). After this callback returns, anything may happen, including
-/// crashing.
-///
-/// See also secp256k1_default_illegal_callback_fn.
-///
-/// # Safety
-///
-/// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
-///
-/// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
-#[no_mangle]
-#[cfg(not(rust_secp_no_symbol_renaming))]
-pub unsafe extern "C" fn rustsecp256k1_v0_10_0_default_error_callback_fn(
-    message: *const c_char,
-    _data: *mut c_void,
-) {
-    use core::str;
-    let msg_slice = slice::from_raw_parts(message as *const u8, strlen(message));
-    let msg = str::from_utf8_unchecked(msg_slice);
-    panic!("[libsecp256k1] internal consistency check failed {}", msg);
-}
+// /// **This function is an override for the C function, this is the an edited version of the original description:**
+// ///
+// /// A callback function to be called when an internal consistency check
+// /// fails. **This will cause a panic**.
+// ///
+// /// This can only trigger in case of a hardware failure, miscompilation,
+// /// memory corruption, serious bug in the library, or other error would can
+// /// otherwise result in undefined behaviour. It will not trigger due to mere
+// /// incorrect usage of the API (see secp256k1_default_illegal_callback_fn
+// /// for that). After this callback returns, anything may happen, including
+// /// crashing.
+// ///
+// /// See also secp256k1_default_illegal_callback_fn.
+// ///
+// /// # Safety
+// ///
+// /// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
+// ///
+// /// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
+// #[no_mangle]
+// #[cfg(not(rust_secp_no_symbol_renaming))]
+// pub unsafe extern "C" fn rustsecp256k1_v0_10_0_default_error_callback_fn(
+//     message: *const c_char,
+//     _data: *mut c_void,
+// ) {
+//     use core::str;
+//     let msg_slice = slice::from_raw_parts(message as *const u8, strlen(message));
+//     let msg = str::from_utf8_unchecked(msg_slice);
+//     panic!("[libsecp256k1] internal consistency check failed {}", msg);
+// }
 
-/// Returns the length of the `str_ptr` string.
-///
-/// # Safety
-///
-/// `str_ptr` must be valid pointer and point to a valid null terminated C string.
-#[cfg(not(rust_secp_no_symbol_renaming))]
-unsafe fn strlen(mut str_ptr: *const c_char) -> usize {
-    let mut ctr = 0;
-    while *str_ptr != '\0' as c_char {
-        ctr += 1;
-        str_ptr = str_ptr.offset(1);
-    }
-    ctr
-}
+// /// Returns the length of the `str_ptr` string.
+// ///
+// /// # Safety
+// ///
+// /// `str_ptr` must be valid pointer and point to a valid null terminated C string.
+// #[cfg(not(rust_secp_no_symbol_renaming))]
+// unsafe fn strlen(mut str_ptr: *const c_char) -> usize {
+//     let mut ctr = 0;
+//     while *str_ptr != '\0' as c_char {
+//         ctr += 1;
+//         str_ptr = str_ptr.offset(1);
+//     }
+//     ctr
+// }
 
 /// A trait for producing pointers that will always be valid in C (assuming NULL pointer is a valid
 /// no-op).
@@ -1932,17 +1937,17 @@ mod fuzz_dummy {
 #[cfg(secp256k1_fuzz)]
 pub use self::fuzz_dummy::*;
 
-#[cfg(test)]
-mod tests {
-    #[cfg(not(rust_secp_no_symbol_renaming))]
-    #[test]
-    fn test_strlen() {
-        use super::strlen;
-        use std::ffi::CString;
+// #[cfg(test)]
+// mod tests {
+//     #[cfg(not(rust_secp_no_symbol_renaming))]
+//     #[test]
+//     fn test_strlen() {
+//         use super::strlen;
+//         use std::ffi::CString;
 
-        let orig = "test strlen \t \n";
-        let test = CString::new(orig).unwrap();
+//         let orig = "test strlen \t \n";
+//         let test = CString::new(orig).unwrap();
 
-        assert_eq!(orig.len(), unsafe { strlen(test.as_ptr()) });
-    }
-}
+//         assert_eq!(orig.len(), unsafe { strlen(test.as_ptr()) });
+//     }
+// }
