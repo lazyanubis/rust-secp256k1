@@ -950,7 +950,7 @@ impl Keypair {
             let err = ffi::secp256k1_keypair_xonly_tweak_add(
                 secp.ctx.as_ptr(),
                 &mut self.0,
-                tweak.as_c_ptr(),
+                &tweak.to_be_bytes(),
             );
             if err != 1 {
                 return Err(Error::InvalidTweak);

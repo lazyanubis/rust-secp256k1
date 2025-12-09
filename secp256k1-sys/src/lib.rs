@@ -609,9 +609,7 @@ mod _c1 {
 
     // Contexts
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_destroy")]
-    pub fn secp256k1_context_preallocated_destroy(cx: NonNull<Context>) {
-        todo!()
-    }
+    pub fn secp256k1_context_preallocated_destroy(cx: NonNull<Context>) {}
 
     // Signatures
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_ecdsa_signature_parse_der")]
@@ -792,7 +790,7 @@ mod _c2 {
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_clone_size")]
     pub unsafe fn secp256k1_context_preallocated_clone_size(cx: *const Context) -> size_t {
-        todo!()
+        0
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_context_preallocated_clone")]
@@ -923,12 +921,15 @@ mod _c2 {
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_schnorrsig_sign")]
     pub unsafe fn secp256k1_schnorrsig_sign(
         cx: *const Context,
-        sig: *mut c_uchar,
-        msg32: *const c_uchar,
+        sig: &mut [u8; 64],
+        msg32: &[u8; 32],
         keypair: *const Keypair,
-        aux_rand32: *const c_uchar,
+        aux_rand32: &[u8; 32],
     ) -> c_int {
-        todo!()
+        let signing_key = k256::schnorr::SigningKey::from_bytes(&keypair.read().0[..32]).unwrap();
+        let signature = signing_key.sign_prehash_with_aux_rand(msg32, aux_rand32).unwrap();
+        sig.copy_from_slice(&signature.to_bytes());
+        1
     }
 
     // Schnorr Signatures with extra parameters (see [`SchnorrSigExtraParams`])
@@ -1086,10 +1087,37 @@ mod _c2 {
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_keypair_xonly_tweak_add")]
     pub unsafe fn secp256k1_keypair_xonly_tweak_add(
         cx: *const Context,
-        keypair: *mut Keypair,
-        tweak32: *const c_uchar,
+        keypair: &mut Keypair,
+        tweak32: &[u8; 32],
     ) -> c_int {
-        todo!()
+        use k256::elliptic_curve::group::GroupEncoding;
+        use k256::elliptic_curve::scalar::FromUintUnchecked;
+        use k256::elliptic_curve::{sec1::ToEncodedPoint, Curve};
+
+        let tweak_uint = k256::elliptic_curve::bigint::U256::from_be_hex(&hex::encode(tweak32));
+        let tweak_mod: k256::elliptic_curve::bigint::U256 = tweak_uint
+            % k256::elliptic_curve::bigint::NonZero::new(k256::Secp256k1::ORDER).unwrap();
+        let tweak_scalar = k256::Scalar::from_uint_unchecked(tweak_mod); // 转换为secp256k1标量
+
+        let g = k256::ProjectivePoint::GENERATOR;
+        let t_g = g * tweak_scalar;
+
+        let mut x_only_bytes_ = [0_u8; 33];
+        x_only_bytes_[0] = 0x02;
+        x_only_bytes_[1..].copy_from_slice(&keypair.0[32..64]);
+        #[allow(deprecated)]
+        let projective_point = k256::ProjectivePoint::from_bytes(
+            &k256::elliptic_curve::generic_array::GenericArray::from(x_only_bytes_),
+        )
+        .into_option()
+        .unwrap();
+
+        let tweaked_proj = projective_point + t_g;
+        let tweaked_affine = k256::AffinePoint::from(tweaked_proj);
+
+        keypair.0[32..].copy_from_slice(&tweaked_affine.to_encoded_point(false).as_bytes()[1..]);
+
+        1
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_tweak_add_check")]

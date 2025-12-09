@@ -30,6 +30,7 @@ alloc = []
 
 [dependencies]
 k256 = { version = "0.13.4" }
+hex = { version = "0.4.3" }
 
 [lints.rust]
 unexpected_cfgs = { level = "deny", check-cfg = [

@@ -3,6 +3,7 @@
 //! Support for schnorr signatures.
 //!
 
+#[allow(unused)]
 use core::{fmt, ptr, str};
 
 #[cfg(feature = "rand")]
@@ -103,7 +104,7 @@ impl<C: Signing> Secp256k1<C> {
         &self,
         msg: &Message,
         keypair: &Keypair,
-        nonce_data: *const ffi::types::c_uchar,
+        nonce_data: &[u8; 32],
     ) -> Signature {
         unsafe {
             let mut sig = [0u8; constants::SCHNORR_SIGNATURE_SIZE];
@@ -111,8 +112,8 @@ impl<C: Signing> Secp256k1<C> {
                 1,
                 ffi::secp256k1_schnorrsig_sign(
                     self.ctx.as_ptr(),
-                    sig.as_mut_c_ptr(),
-                    msg.as_c_ptr(),
+                    &mut sig,
+                    msg.as_ref(),
                     keypair.as_c_ptr(),
                     nonce_data,
                 )
@@ -131,7 +132,7 @@ impl<C: Signing> Secp256k1<C> {
 
     /// Creates a schnorr signature without using any auxiliary random data.
     pub fn sign_schnorr_no_aux_rand(&self, msg: &Message, keypair: &Keypair) -> Signature {
-        self.sign_schnorr_helper(msg, keypair, ptr::null())
+        self.sign_schnorr_helper(msg, keypair, &[0_u8; 32])
     }
 
     /// Creates a schnorr signature using the given auxiliary random data.
@@ -141,7 +142,7 @@ impl<C: Signing> Secp256k1<C> {
         keypair: &Keypair,
         aux_rand: &[u8; 32],
     ) -> Signature {
-        self.sign_schnorr_helper(msg, keypair, aux_rand.as_c_ptr() as *const ffi::types::c_uchar)
+        self.sign_schnorr_helper(msg, keypair, aux_rand)
     }
 
     /// Creates a schnorr signature using the given random number generator to
