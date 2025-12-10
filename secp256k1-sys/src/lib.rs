@@ -393,10 +393,9 @@ impl PartialOrd for XOnlyPublicKey {
 
 #[cfg(not(secp256k1_fuzz))]
 impl Ord for XOnlyPublicKey {
-    fn cmp(&self, _other: &XOnlyPublicKey) -> core::cmp::Ordering {
-        // let ret = unsafe { secp256k1_xonly_pubkey_cmp(secp256k1_context_no_precomp, self, other) };
-        // ret.cmp(&0i32)
-        todo!()
+    fn cmp(&self, other: &XOnlyPublicKey) -> core::cmp::Ordering {
+        let ret = unsafe { secp256k1_xonly_pubkey_cmp(self, other) };
+        ret.cmp(&0i32)
     }
 }
 
@@ -1048,11 +1047,16 @@ mod _c2 {
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_cmp")]
     pub unsafe fn secp256k1_xonly_pubkey_cmp(
-        cx: *const Context,
-        pubkey1: *const XOnlyPublicKey,
-        pubkey2: *const XOnlyPublicKey,
+        pubkey1: &XOnlyPublicKey,
+        pubkey2: &XOnlyPublicKey,
     ) -> c_int {
-        todo!()
+        for i in 0..64 {
+            let diff = pubkey1.0[i] as i32 - pubkey2.0[i] as i32;
+            if diff != 0 {
+                return diff;
+            }
+        }
+        0
     }
 
     // #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_10_0_xonly_pubkey_tweak_add")]
